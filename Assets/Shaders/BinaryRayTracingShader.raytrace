@@ -1,0 +1,54 @@
+// Uncomment this pragma for debugging the HLSL code in PIX. GPU performance will be impacted.
+//#pragma enable_ray_tracing_shader_debug_symbols
+
+#pragma max_recursion_depth 1
+#include "UnityShaderVariables.cginc"
+#include "Assets/ShaderLibrary/Payload.hlsl"
+
+RWTexture2D<float4> g_Output;
+RaytracingAccelerationStructure g_SceneAccelStruct;
+
+[shader("raygeneration")]
+void MyRaygenShader() {    
+    float4x4 view = unity_WorldToCamera;
+    float4x4 proj = unity_CameraProjection ;
+
+    uint2 launchIndex = DispatchRaysIndex().xy;
+    uint2 launchDim = DispatchRaysDimensions().xy;
+
+    float2 frameCoord = float2(launchIndex.x, launchDim.y - launchIndex.y - 1) + float2(0.5, 0.5);
+    float2 ndcCoords = frameCoord / float2(launchDim.x - 1, launchDim.y - 1);
+    ndcCoords = ndcCoords * 2 - float2(1, 1);
+    
+    // Extract the aspect ratio and field of view from the projection matrix
+    float aspect = proj[1][1] / proj [0][0];
+    float tanHalfFovY = 1.0f / proj [1][1];
+
+    float3 rayDirection = normalize(
+          view[0].xyz * (ndcCoords.x * tanHalfFovY * aspect)
+        + view[1].xyz * (ndcCoords.y * tanHalfFovY)
+        + view[2].xyz);
+
+    RayDesc ray;
+    ray.Origin    = _WorldSpaceCameraPos;
+    ray.Direction = rayDirection;
+    ray.TMin      = 0.0f;
+    ray.TMax      = 1000.0f;
+
+    RayPayload payload;
+    payload.color = 0; //float4(1, 1, 1, 1);
+
+    uint missShaderIndex = 0;
+    TraceRay(g_SceneAccelStruct, 0, 0xFF, 0, 1, missShaderIndex, ray, payload);
+
+    g_Output[frameCoord] = payload.color;
+    //g_Output[launchIndex] = float4(launchIndex.x & launchIndex.y, (launchIndex.x & 15)/15.0, (launchIndex.y & 15)/15.0, 0.0);
+}
+[shader("miss")]
+void MainMissShader(inout RayPayload payload : SV_RayPayload) {
+    //payload.color = float4(0, 0, 0, 1);
+    float t = WorldRayDirection().y * 0.9 + 0.1;
+    t = saturate(pow(t, 0.2));
+    float3 c = lerp(float3(0.5, 0.5, 0.7), float3(0.1, 0.3, 0.8), t);
+    payload.color = float4(c, 1);
+}
