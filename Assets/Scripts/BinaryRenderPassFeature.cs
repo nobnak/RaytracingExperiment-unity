@@ -124,8 +124,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
     // レンダラーにレンダーパスを追加
     // カメラごとにレンダラーのセットアップ時に呼び出される
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData) {
-        if (renderingData.cameraData.isSceneViewCamera || renderingData.cameraData.isPreviewCamera) {
-            // シーンビューカメラとプレビューカメラではパスを追加しない
+        if (renderingData.cameraData.isPreviewCamera) {
+            // プレビューカメラではパスを追加しない
             return;
         }
         renderer.EnqueuePass(m_ScriptablePass);
