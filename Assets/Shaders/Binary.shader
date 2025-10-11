@@ -37,4 +37,5 @@ Shader "Custom/Binary" {
             ENDHLSL
         }
     }
+    FallBack "Diffuse"
 }

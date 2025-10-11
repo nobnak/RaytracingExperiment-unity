@@ -9,7 +9,7 @@ RWTexture2D<float4> g_Output;
 RaytracingAccelerationStructure g_Scene;
 
 [shader("raygeneration")]
-void MyRaygenShader() {    
+void RaygenShader() {    
     float4x4 view = unity_WorldToCamera;
     float4x4 proj = unity_CameraProjection ;
 

@@ -33,7 +33,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
 
             data.rayTracingAccelerationStructure?.Build();
 
-            native_cmd.SetRayTracingShaderPass(data.rayTracingShader, Name_ClosestHitPass);
+            native_cmd.SetRayTracingShaderPass(data.rayTracingShader, RT_ClosestHit);
 
             context.cmd.SetRayTracingAccelerationStructure(
                 data.rayTracingShader, 
@@ -44,7 +44,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 ID_Output, 
                 data.output_ColorTexture);
 
-            context.cmd.DispatchRays(data.rayTracingShader, "MyRaygenShader", (uint)data.camera.pixelWidth, (uint)data.camera.pixelHeight, 1, data.camera);
+            context.cmd.DispatchRays(data.rayTracingShader, RT_RayGen, (uint)data.camera.pixelWidth, (uint)data.camera.pixelHeight, 1, data.camera);
 
             // 結果をカメラに書き戻す
             native_cmd.Blit(data.output_ColorTexture, data.camera_ColorTarget);
@@ -140,7 +140,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
     }
 
     #region declarations
-    public const string Name_ClosestHitPass = "BinaryRayTracing";
+    public const string RT_RayGen = "RaygenShader";
+    public const string RT_ClosestHit = "BinaryRayTracing";
     public static readonly int ID_Scene = Shader.PropertyToID("g_Scene");
     public static readonly int ID_Output = Shader.PropertyToID("g_Output");
     #endregion
