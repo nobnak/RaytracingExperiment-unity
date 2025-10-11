@@ -4,20 +4,20 @@ using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Experimental.Rendering;
 
-public class BinaryRenderPassFeature : ScriptableRendererFeature {
+public class RayTracingPassFeature : ScriptableRendererFeature {
 
     public RayTracingShader rayTracingShader;
 
-    class CustomRenderPass : ScriptableRenderPass {
+    class RayTracingPass : ScriptableRenderPass {
         private readonly RayTracingShader rayTracingShader;
         private RayTracingAccelerationStructure rayTracingAccelerationStructure;
 
-        public CustomRenderPass(RayTracingShader rayTracingShader) {
+        public RayTracingPass(RayTracingShader rayTracingShader) {
             this.rayTracingShader = rayTracingShader;
         }
 
-        // This class stores the data needed by the RenderGraph pass.
-        // It is passed as a parameter to the delegate function that executes the RenderGraph pass.
+        // RenderGraph パスで必要なデータを保持するクラス
+        // パス実行時にデリゲート関数へパラメータとして渡される
         private class PassData {
             public RayTracingShader rayTracingShader;
             public TextureHandle output_ColorTexture;
@@ -26,8 +26,8 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
             public Camera camera;
         }
 
-        // This static method is passed as the RenderFunc delegate to the RenderGraph render pass.
-        // It is used to execute draw commands.
+        // RenderGraph の RenderFunc デリゲートとして渡される静的メソッド
+        // 描画コマンドの実行に使用される
         static void ExecutePass(PassData data, UnsafeGraphContext context) {
             var native_cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
 
@@ -37,7 +37,7 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
 
             context.cmd.SetRayTracingAccelerationStructure(
                 data.rayTracingShader, 
-                ID_AccelStruct, 
+                ID_Scene, 
                 data.rayTracingAccelerationStructure);
             context.cmd.SetRayTracingTextureParam(
                 data.rayTracingShader, 
@@ -50,21 +50,19 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
             native_cmd.Blit(data.output_ColorTexture, data.camera_ColorTarget);
         }
 
-        // RecordRenderGraph is where the RenderGraph handle can be accessed, through which render passes can be added to the graph.
-        // FrameData is a context container through which URP resources can be accessed and managed.
+        // RenderGraph ハンドルにアクセスし、グラフにレンダーパスを追加するメソッド
+        // FrameData は URP リソースへのアクセスと管理を行うコンテキストコンテナ
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) {
             const string passName = "Render Custom Pass";
 
-            // Make use of frameData to access resources and camera data through the dedicated containers.
-            // Eg:
-            // UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+            // frameData から必要なリソースとカメラデータを取得
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
 
             // 現在のカメラで描画されたカラーフレームバッファを取得
             var colorTexture = resourceData.activeColorTexture;
 
-            // レイトレ結果を描き出すバッファを作成
+            // レイトレーシング結果を描き出すバッファを作成
             RenderTextureDescriptor rtdesc = cameraData.cameraTargetDescriptor;
             rtdesc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
             rtdesc.depthStencilFormat = GraphicsFormat.None;
@@ -73,7 +71,7 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
             var resultTex = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph, rtdesc, "_RayTracedColor", false);
 
-            // Acceleration Structure を作成
+            // アクセラレーション構造を作成
             if (rayTracingAccelerationStructure == null) {
                 var settings = new RayTracingAccelerationStructure.Settings();
                 settings.rayTracingModeMask = RayTracingAccelerationStructure.RayTracingModeMask.Everything;
@@ -82,19 +80,13 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
 
                 rayTracingAccelerationStructure = new RayTracingAccelerationStructure(settings);
 
-                // AS の構築はここだけ。動的な更新には今は対応しない
-                //rayTracingAccelerationStructure.Build();
+                // アクセラレーション構造の構築は ExecutePass で実行される
+                // 動的な更新には今のところ対応しない
             }
 
-            // This adds a raster render pass to the graph, specifying the name and the data type that will be passed to the ExecutePass function.
+            // レンダーパスをグラフに追加し、ExecutePass 関数に渡すデータ型を指定
             using (var builder = renderGraph.AddUnsafePass<PassData>(passName, out var passData)) {
-                // Use this scope to set the required inputs and outputs of the pass and to
-                // setup the passData with the required properties needed at pass execution time.
-
-                // Setup pass inputs and outputs through the builder interface.
-                // Eg:
-                // builder.UseTexture(sourceTexture);
-                // TextureHandle destination = UniversalRenderer.CreateRenderGraphTexture(renderGraph, cameraData.cameraTargetDescriptor, "Destination Texture", false);
+                // パスの入出力を設定し、実行時に必要なプロパティを passData にセットアップ
                 passData.rayTracingShader = rayTracingShader;
                 passData.output_ColorTexture = resultTex;
                 passData.camera_ColorTarget = colorTexture;
@@ -104,7 +96,8 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
                 builder.UseTexture(passData.output_ColorTexture, AccessFlags.Write);
                 builder.UseTexture(passData.camera_ColorTarget, AccessFlags.ReadWrite);
 
-                // Assigns the ExecutePass function to the render pass delegate. This will be called by the render graph when executing the pass.
+                // レンダーパスのデリゲートに ExecutePass 関数を割り当て
+                // RenderGraph によるパス実行時に呼び出される
                 builder.SetRenderFunc((PassData data, UnsafeGraphContext context) => {
                     ExecutePass(data, context);
                 });
@@ -112,27 +105,27 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
         }
 
         public void Cleanup() {
-            // Cleanup the acceleration structure if it was created.
+            // アクセラレーション構造が作成されていれば解放
             rayTracingAccelerationStructure?.Dispose();
             rayTracingAccelerationStructure = null;
         }
     }
 
-    CustomRenderPass m_ScriptablePass;
+    RayTracingPass m_ScriptablePass;
 
-    /// <inheritdoc/>
+    // レンダーパスの初期化
     public override void Create() {
-        m_ScriptablePass = new CustomRenderPass(rayTracingShader);
+        m_ScriptablePass = new RayTracingPass(rayTracingShader);
 
-        // Configures where the render pass should be injected.
+        // レンダーパスを挿入するタイミングを設定
         m_ScriptablePass.renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
     }
 
-    // Here you can inject one or multiple render passes in the renderer.
-    // This method is called when setting up the renderer once per-camera.
+    // レンダラーにレンダーパスを追加
+    // カメラごとにレンダラーのセットアップ時に呼び出される
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData) {
         if (renderingData.cameraData.isSceneViewCamera || renderingData.cameraData.isPreviewCamera) {
-            // Do not add the pass for scene view or preview cameras.
+            // シーンビューカメラとプレビューカメラではパスを追加しない
             return;
         }
         renderer.EnqueuePass(m_ScriptablePass);
@@ -148,8 +141,7 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
 
     #region declarations
     public const string Name_ClosestHitPass = "BinaryRayTracing";
-    public static readonly int ID_AccelStruct = Shader.PropertyToID("g_SceneAccelStruct");
+    public static readonly int ID_Scene = Shader.PropertyToID("g_Scene");
     public static readonly int ID_Output = Shader.PropertyToID("g_Output");
-    public static readonly int ID_Zoom = Shader.PropertyToID("g_Zoom");
     #endregion
 }
