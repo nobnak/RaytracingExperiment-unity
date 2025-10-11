@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -31,6 +31,8 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
         static void ExecutePass(PassData data, UnsafeGraphContext context) {
             var native_cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
 
+            data.rayTracingAccelerationStructure?.Build();
+
             native_cmd.SetRayTracingShaderPass(data.rayTracingShader, Name_ClosestHitPass);
 
             context.cmd.SetRayTracingAccelerationStructure(
@@ -44,7 +46,7 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
 
             context.cmd.DispatchRays(data.rayTracingShader, "MyRaygenShader", (uint)data.camera.pixelWidth, (uint)data.camera.pixelHeight, 1, data.camera);
 
-            // Œ‹‰Ê‚ğƒJƒƒ‰‚É‘‚«–ß‚·
+            // çµæœã‚’ã‚«ãƒ¡ãƒ©ã«æ›¸ãæˆ»ã™
             native_cmd.Blit(data.output_ColorTexture, data.camera_ColorTarget);
         }
 
@@ -59,10 +61,10 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
 
-            // Œ»İ‚ÌƒJƒƒ‰‚Å•`‰æ‚³‚ê‚½ƒJƒ‰[ƒtƒŒ[ƒ€ƒoƒbƒtƒ@‚ğæ“¾
+            // ç¾åœ¨ã®ã‚«ãƒ¡ãƒ©ã§æç”»ã•ã‚ŒãŸã‚«ãƒ©ãƒ¼ãƒ•ãƒ¬ãƒ¼ãƒ ãƒãƒƒãƒ•ã‚¡ã‚’å–å¾—
             var colorTexture = resourceData.activeColorTexture;
 
-            // ƒŒƒCƒgƒŒŒ‹‰Ê‚ğ•`‚«o‚·ƒoƒbƒtƒ@‚ğì¬
+            // ãƒ¬ã‚¤ãƒˆãƒ¬çµæœã‚’æãå‡ºã™ãƒãƒƒãƒ•ã‚¡ã‚’ä½œæˆ
             RenderTextureDescriptor rtdesc = cameraData.cameraTargetDescriptor;
             rtdesc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
             rtdesc.depthStencilFormat = GraphicsFormat.None;
@@ -71,7 +73,7 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
             var resultTex = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph, rtdesc, "_RayTracedColor", false);
 
-            // Acceleration Structure ‚ğì¬
+            // Acceleration Structure ã‚’ä½œæˆ
             if (rayTracingAccelerationStructure == null) {
                 var settings = new RayTracingAccelerationStructure.Settings();
                 settings.rayTracingModeMask = RayTracingAccelerationStructure.RayTracingModeMask.Everything;
@@ -80,8 +82,8 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
 
                 rayTracingAccelerationStructure = new RayTracingAccelerationStructure(settings);
 
-                // AS ‚Ì\’z‚Í‚±‚±‚¾‚¯B“®“I‚ÈXV‚É‚Í¡‚Í‘Î‰‚µ‚È‚¢
-                rayTracingAccelerationStructure.Build();
+                // AS ã®æ§‹ç¯‰ã¯ã“ã“ã ã‘ã€‚å‹•çš„ãªæ›´æ–°ã«ã¯ä»Šã¯å¯¾å¿œã—ãªã„
+                //rayTracingAccelerationStructure.Build();
             }
 
             // This adds a raster render pass to the graph, specifying the name and the data type that will be passed to the ExecutePass function.
@@ -103,7 +105,9 @@ public class BinaryRenderPassFeature : ScriptableRendererFeature {
                 builder.UseTexture(passData.camera_ColorTarget, AccessFlags.ReadWrite);
 
                 // Assigns the ExecutePass function to the render pass delegate. This will be called by the render graph when executing the pass.
-                builder.SetRenderFunc((PassData data, UnsafeGraphContext context) => ExecutePass(data, context));
+                builder.SetRenderFunc((PassData data, UnsafeGraphContext context) => {
+                    ExecutePass(data, context);
+                });
             }
         }
 

@@ -6,6 +6,12 @@ Shader "Custom/Binary" {
 
     HLSLINCLUDE
     #include "Assets/ShaderLibrary/Payload.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+    CBUFFER_START(UnityPerMaterial)
+    float4 _Color;
+    sampler2D _MainTex;
+    CBUFFER_END
     ENDHLSL
 
     SubShader {
@@ -25,41 +31,9 @@ Shader "Custom/Binary" {
             [shader("closesthit")]
             void ClosestHitMain(inout RayPayload payload : SV_RayPayload, AttributeData attribs : SV_IntersectionAttributes)
             {
-                payload.color = float4(1, 0, 0, 1);
+                payload.color = _Color;
             }
 
-            ENDHLSL
-        }
-        Pass {
-            HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            struct Attributes {
-                float4 positionOS   : POSITION;
-            };
-
-            struct Varyings {
-                float4 positionHCS  : SV_POSITION;
-            };
-
-            CBUFFER_START(UnityPerMaterial)
-            float4 _Color;
-            sampler2D _MainTex;
-            CBUFFER_END
-
-            Varyings vert(Attributes IN) {
-                Varyings OUT;
-                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
-                return OUT;
-            }
-
-            half4 frag() : SV_Target {
-                half4 customColor = _Color;
-                return customColor;
-            }
             ENDHLSL
         }
     }
