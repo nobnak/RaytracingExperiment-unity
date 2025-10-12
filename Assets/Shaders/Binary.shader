@@ -19,15 +19,12 @@ Shader "Custom/Binary" {
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
 
         Pass {
-            Name "BinaryRayTracing"
+            Name "ClosestHitShader"
             Tags { "LightMode" = "Raytracing" }
 
             HLSLPROGRAM
             #pragma raytracing test
-            struct AttributeData {
-                float2 barycentrics;
-            };
-
+            
             [shader("closesthit")]
             void ClosestHitMain(inout RayPayload payload : SV_RayPayload, AttributeData attribs : SV_IntersectionAttributes)
             {

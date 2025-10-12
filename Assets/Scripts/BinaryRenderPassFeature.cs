@@ -141,7 +141,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
 
     #region declarations
     public const string RT_RayGen = "RaygenShader";
-    public const string RT_ClosestHit = "BinaryRayTracing";
+    public const string RT_ClosestHit = "ClosestHitShader";
     public static readonly int ID_Scene = Shader.PropertyToID("g_Scene");
     public static readonly int ID_Output = Shader.PropertyToID("g_Output");
     #endregion

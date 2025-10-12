@@ -5,4 +5,7 @@ struct RayPayload {
     float4 color;
 };
 
+struct AttributeData {
+    float2 barycentrics;
+};
 #endif
