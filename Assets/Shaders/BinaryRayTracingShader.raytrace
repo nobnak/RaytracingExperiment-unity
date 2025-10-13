@@ -50,4 +50,5 @@ void MainMissShader(inout RayPayload payload : SV_RayPayload) {
     t = saturate(pow(t, 0.2));
     float3 c = lerp(float3(0.5, 0.5, 0.7), float3(0.1, 0.3, 0.8), t);
     payload.color = float4(c, 1);
+    payload.hit = false;
 }

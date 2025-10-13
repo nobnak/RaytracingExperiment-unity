@@ -4,17 +4,20 @@ Shader "Custom/Binary" {
         _MainTex ("Albedo (RGB)", 2D) = "white" {}
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
         _Metallic ("Metallic", Range(0,1)) = 0.0
+        _Ambient ("Ambient", Range(0,1)) = 0.1
     }
 
     HLSLINCLUDE
     #include "Assets/ShaderLibrary/Payload.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
     #include "UnityRaytracingMeshUtils.cginc"
 
     CBUFFER_START(UnityPerMaterial)
     float4 _Color;
     sampler2D _MainTex;
     float4 _MainTex_ST;
+    float _Ambient;
     CBUFFER_END
     ENDHLSL
 
@@ -79,13 +82,25 @@ Shader "Custom/Binary" {
                 // 法線をワールド空間に変換
                 float3 normalWorld = normalize(mul((float3x3)ObjectToWorld3x4(), interpolated.normal));
                 
-                // 法線を色として表示（[-1,1] → [0,1]）
-                payload.color = float4(normalWorld * 0.5 + 0.5, 1);
+                // メインライトの情報を取得
+                Light mainLight = GetMainLight();
+                float3 lightDir = mainLight.direction;
+                float3 lightColor = mainLight.color;
+                
+                // ランバート拡散反射
+                float NdotL = max(0, dot(normalWorld, lightDir));
+                float3 diffuse = lightColor * NdotL;
+                
+                // 最終カラー
+                float3 finalColor = _Color.rgb * (diffuse + _Ambient); // 0.1は環境光
+                payload.color = float4(finalColor, 1);
+                payload.hit = true;
                 
                 // その他の表示オプション：
+                // payload.color = float4(normalWorld * 0.5 + 0.5, 1); // 法線
                 // payload.color = float4(bary, 1); // 重心座標
-                // payload.color = float4(abs(normalWorld), 1); // 法線の絶対値
-                // payload.color = _Color * max(0, dot(normalWorld, float3(0, 1, 0))); // 簡易ライティング
+                // payload.color = float4(lightDir * 0.5 + 0.5, 1); // ライト方向
+                // payload.color = float4(lightColor, 1); // ライトカラー
             }
 
             ENDHLSL

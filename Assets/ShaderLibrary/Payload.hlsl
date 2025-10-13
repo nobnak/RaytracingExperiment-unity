@@ -2,6 +2,7 @@
 #define __PAYLOAD_HLSL__
 
 struct RayPayload {
+    bool hit;
     float4 color;
 };
 
