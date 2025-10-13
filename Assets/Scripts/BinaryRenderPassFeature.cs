@@ -6,6 +6,7 @@ using UnityEngine.Experimental.Rendering;
 
 public class RayTracingPassFeature : ScriptableRendererFeature {
 
+    public RenderPassEvent renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
     public RayTracingShader rayTracingShader;
 
     class RayTracingPass : ScriptableRenderPass {
@@ -118,7 +119,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         m_ScriptablePass = new RayTracingPass(rayTracingShader);
 
         // レンダーパスを挿入するタイミングを設定
-        m_ScriptablePass.renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
+        m_ScriptablePass.renderPassEvent = renderPassEvent;
     }
 
     // レンダラーにレンダーパスを追加
