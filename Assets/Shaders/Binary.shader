@@ -29,6 +29,10 @@ Shader "Custom/Binary" {
             HLSLPROGRAM
             #pragma raytracing test
 
+            // 重心座標による補完マクロ
+            #define BARY_INTERPOLATE(v0, v1, v2, bary, attr) \
+                ((v0).attr * (bary).x + (v1).attr * (bary).y + (v2).attr * (bary).z)
+
             struct Vertex {
                 float3 position;
                 float3 normal;
@@ -36,6 +40,7 @@ Shader "Custom/Binary" {
                 float2 texCoord0;
                 float4 color;
             };
+            
             Vertex FetchVertex(uint vertexIndex) {
                 Vertex v;
                 v.position = UnityRayTracingFetchVertexAttribute3(vertexIndex, kVertexAttributePosition);
@@ -45,35 +50,42 @@ Shader "Custom/Binary" {
                 v.color = UnityRayTracingFetchVertexAttribute4(vertexIndex, kVertexAttributeColor);
                 return v;
             }
+            
+            Vertex InterpolateVertices(Vertex v0, Vertex v1, Vertex v2, float3 bary) {
+                Vertex result;
+                result.position = BARY_INTERPOLATE(v0, v1, v2, bary, position);
+                result.normal = normalize(BARY_INTERPOLATE(v0, v1, v2, bary, normal));
+                result.tangent = BARY_INTERPOLATE(v0, v1, v2, bary, tangent);
+                result.texCoord0 = BARY_INTERPOLATE(v0, v1, v2, bary, texCoord0);
+                result.color = BARY_INTERPOLATE(v0, v1, v2, bary, color);
+                return result;
+            }
 
             [shader("closesthit")]
             void ClosestHitMain(inout RayPayload payload : SV_RayPayload, AttributeData attribs : SV_IntersectionAttributes) {
-                // ヒット位置をレイから直接計算（ワールド空間）
+                // ヒット位置（ワールド空間）
                 float3 hitPositionWorld = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
                 
-                // 重心座標を取得
-                float3 barycentrics = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
+                // 重心座標
+                float3 bary = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
                 
-                // プリミティブインデックスを取得
-                uint primitiveIndex = PrimitiveIndex();                
-                uint3 triangleIndices = UnityRayTracingFetchTriangleIndices(primitiveIndex);
-                Vertex v0 = FetchVertex(triangleIndices.x);
-                Vertex v1 = FetchVertex(triangleIndices.y);
-                Vertex v2 = FetchVertex(triangleIndices.z);
+                // 頂点を取得して補完
+                uint3 indices = UnityRayTracingFetchTriangleIndices(PrimitiveIndex());
+                Vertex v0 = FetchVertex(indices.x);
+                Vertex v1 = FetchVertex(indices.y);
+                Vertex v2 = FetchVertex(indices.z);
+                Vertex interpolated = InterpolateVertices(v0, v1, v2, bary);
                 
-                float3 barycentricNormal = normalize(v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z);
+                // 法線をワールド空間に変換
+                float3 normalWorld = normalize(mul((float3x3)ObjectToWorld3x4(), interpolated.normal));
                 
-                // デバッグ用：PrimitiveIndexで色分け
-                float3 debugColor = float3(
-                    frac(primitiveIndex * 0.1),
-                    frac(primitiveIndex * 0.2),
-                    frac(primitiveIndex * 0.3)
-                );
+                // 法線を色として表示（[-1,1] → [0,1]）
+                payload.color = float4(normalWorld * 0.5 + 0.5, 1);
                 
-                // 重心座標で色付け（デバッグ用）
-                // debugColor = barycentrics;
-                
-                payload.color = float4(debugColor, 1);
+                // その他の表示オプション：
+                // payload.color = float4(bary, 1); // 重心座標
+                // payload.color = float4(abs(normalWorld), 1); // 法線の絶対値
+                // payload.color = _Color * max(0, dot(normalWorld, float3(0, 1, 0))); // 簡易ライティング
             }
 
             ENDHLSL
