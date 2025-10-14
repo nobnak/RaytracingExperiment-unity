@@ -13,6 +13,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         public RenderPassEvent renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
         [Range(0f, 90f)] public float angularDiameter = 0.5f;
         [Range(1, 64)] public int sampleCount = 16;
+        [Range(0f, 1f)] public float temporalBlend = 0.9f;
     }
 
     public Settings settings = new Settings();
@@ -21,10 +22,15 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         private readonly Settings settings;
         private RayTracingAccelerationStructure rayTracingAccelerationStructure;
         private Material compositeMaterial;
+        private Material temporalBlendMaterial;
+        private RTHandle prevShadowTexture;
 
         public RayTracingPass(Settings settings) {
             this.settings = settings;
             if (settings.compositeShader != null) compositeMaterial = new Material(settings.compositeShader);
+            
+            var temporalShader = Shader.Find("Hidden/TemporalBlend");
+            if (temporalShader != null) temporalBlendMaterial = new Material(temporalShader);
         }
 
         // RenderGraph パスで必要なデータを保持するクラス
@@ -33,12 +39,16 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             public RayTracingShader rayTracingShader;
             public TextureHandle color_texture;
             public TextureHandle shadow_texture;
+            public TextureHandle blended_shadow_texture;
             public TextureHandle camera_target;
             public RayTracingAccelerationStructure rayTracingAccelerationStructure;
             public Camera camera;
             public Material compositeMaterial;
+            public Material temporalBlendMaterial;
+            public RTHandle prevShadowTexture;
             public float angularDiameter;
             public int sampleCount;
+            public float temporalBlend;
         }
 
         // RenderGraph の RenderFunc デリゲートとして渡される静的メソッド
@@ -69,9 +79,25 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
 
             context.cmd.DispatchRays(data.rayTracingShader, RT_RayGen, (uint)data.camera.pixelWidth, (uint)data.camera.pixelHeight, 1, data.camera);
 
-            // color_texture に shadow_Texture を乗算して camera_target に書き戻す
+            // 時間平均処理（EMA）
+            if (data.temporalBlendMaterial != null && data.prevShadowTexture != null) {
+                data.temporalBlendMaterial.SetTexture(ID_CurrentTex, data.shadow_texture);
+                data.temporalBlendMaterial.SetTexture(ID_PrevTex, data.prevShadowTexture);
+                data.temporalBlendMaterial.SetFloat(ID_BlendFactor, data.temporalBlend);
+                native_cmd.Blit(data.shadow_texture, data.blended_shadow_texture, data.temporalBlendMaterial, 0);
+                
+                // 次フレーム用に保存
+                native_cmd.Blit(data.blended_shadow_texture, data.prevShadowTexture);
+            } else {
+                // 初回フレームまたはマテリアルがない場合
+                native_cmd.Blit(data.shadow_texture, data.blended_shadow_texture);
+                if (data.prevShadowTexture != null)
+                    native_cmd.Blit(data.shadow_texture, data.prevShadowTexture);
+            }
+
+            // color_texture に blended_shadow_texture を乗算して camera_target に書き戻す
             if (data.compositeMaterial != null) {
-                data.compositeMaterial.SetTexture(ID_ShadowTex, data.shadow_texture);
+                data.compositeMaterial.SetTexture(ID_ShadowTex, data.blended_shadow_texture);
                 native_cmd.Blit(data.color_texture, data.camera_target, data.compositeMaterial, 0);
             } else {
                 native_cmd.Blit(data.color_texture, data.camera_target);
@@ -101,6 +127,29 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 renderGraph, rtdesc, "_RayTracedColor", false);
             var shadowTex = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph, rtdesc, "_RayTracedShadow", false);
+            var blendedShadowTex = UniversalRenderer.CreateRenderGraphTexture(
+                renderGraph, rtdesc, "_BlendedShadow", false);
+            
+            // 前フレームの影テクスチャを初期化
+            if (prevShadowTexture == null) {
+                prevShadowTexture = RTHandles.Alloc(
+                    cameraData.cameraTargetDescriptor.width,
+                    cameraData.cameraTargetDescriptor.height,
+                    1,
+                    DepthBits.None,
+                    GraphicsFormat.R16G16B16A16_SFloat,
+                    FilterMode.Bilinear,
+                    TextureWrapMode.Clamp,
+                    TextureDimension.Tex2D,
+                    enableRandomWrite: true,
+                    useMipMap: false,
+                    name: "_PrevShadowTexture");
+                
+                // 白（影なし）で初期化
+                RenderTexture.active = prevShadowTexture;
+                GL.Clear(false, true, Color.white);
+                RenderTexture.active = null;
+            }
 
             // アクセラレーション構造を作成
             if (rayTracingAccelerationStructure == null) {
@@ -121,15 +170,20 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 passData.rayTracingShader = settings.rayTracingShader;
                 passData.color_texture = resultTex;
                 passData.shadow_texture = shadowTex;
+                passData.blended_shadow_texture = blendedShadowTex;
                 passData.camera_target = colorTexture;
                 passData.rayTracingAccelerationStructure = rayTracingAccelerationStructure;
                 passData.camera = cameraData.camera;
                 passData.compositeMaterial = compositeMaterial;
+                passData.temporalBlendMaterial = temporalBlendMaterial;
+                passData.prevShadowTexture = prevShadowTexture;
                 passData.angularDiameter = settings.angularDiameter;
                 passData.sampleCount = settings.sampleCount;
+                passData.temporalBlend = settings.temporalBlend;
 
                 builder.UseTexture(passData.color_texture, AccessFlags.ReadWrite);
                 builder.UseTexture(passData.shadow_texture, AccessFlags.ReadWrite);
+                builder.UseTexture(passData.blended_shadow_texture, AccessFlags.ReadWrite);
                 builder.UseTexture(passData.camera_target, AccessFlags.ReadWrite);
 
                 // レンダーパスのデリゲートに ExecutePass 関数を割り当て
@@ -145,9 +199,17 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             rayTracingAccelerationStructure?.Dispose();
             rayTracingAccelerationStructure = null;
             
+            prevShadowTexture?.Release();
+            prevShadowTexture = null;
+            
             if (compositeMaterial != null) {
                 Object.DestroyImmediate(compositeMaterial);
                 compositeMaterial = null;
+            }
+            
+            if (temporalBlendMaterial != null) {
+                Object.DestroyImmediate(temporalBlendMaterial);
+                temporalBlendMaterial = null;
             }
         }
     }
@@ -187,5 +249,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
     public static readonly int ID_ShadowTex = Shader.PropertyToID("_ShadowTex");
     public static readonly int ID_AngularDiameter = Shader.PropertyToID("g_AngularDiameter");
     public static readonly int ID_SampleCount = Shader.PropertyToID("g_SampleCount");
+    public static readonly int ID_CurrentTex = Shader.PropertyToID("_CurrentTex");
+    public static readonly int ID_PrevTex = Shader.PropertyToID("_PrevTex");
+    public static readonly int ID_BlendFactor = Shader.PropertyToID("_BlendFactor");
     #endregion
 }

@@ -32,6 +32,8 @@ MonoBehaviour:
     rayTracingShader: {fileID: 4807578003741378534, guid: be3f0596cf8441544b2a25ccce6b3aed, type: 3}
     compositeShader: {fileID: 4800000, guid: fc50b11617fcf1b459952372bcebc836, type: 3}
     renderPassEvent: 550
+    angularDiameter: 11.9
+    sampleCount: 4
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
