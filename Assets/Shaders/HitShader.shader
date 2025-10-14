@@ -142,7 +142,7 @@ Shader "Custom/Binary" {
                     shadowRay.TMax = 1000.0;
                     
                     for (int i = 0; i < sampleCount; i++) {
-                        float2 seed = hitPositionWorld.xy + float2(i, i * 2);
+                        float2 seed = hitPositionWorld.xy + float2(i, i * 2) + _Time.y;
                         shadowRay.Direction = perturbLightDirection(lightDir, seed, angularDiameterRad);
                         
                         ShadowPayload shadowPayload;
