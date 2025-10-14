@@ -10,6 +10,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
     public class Settings {
         public RayTracingShader rayTracingShader;
         public Shader compositeShader;
+        public Shader temporalShader;
         public RenderPassEvent renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
         [Range(0f, 90f)] public float angularDiameter = 0.5f;
         [Range(1, 64)] public int sampleCount = 16;
@@ -28,9 +29,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         public RayTracingPass(Settings settings) {
             this.settings = settings;
             if (settings.compositeShader != null) compositeMaterial = new Material(settings.compositeShader);
-            
-            var temporalShader = Shader.Find("Hidden/TemporalBlend");
-            if (temporalShader != null) temporalBlendMaterial = new Material(temporalShader);
+            if (settings.temporalShader != null) temporalBlendMaterial = new Material(settings.temporalShader);
         }
 
         // RenderGraph パスで必要なデータを保持するクラス
