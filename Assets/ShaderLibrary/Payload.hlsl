@@ -4,6 +4,11 @@
 struct RayPayload {
     bool hit;
     float4 color;
+    float shadowFactor;
+};
+
+struct ShadowPayload {
+    bool shadowed;
 };
 
 struct AttributeData {

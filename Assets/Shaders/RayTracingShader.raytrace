@@ -1,11 +1,12 @@
 // Uncomment this pragma for debugging the HLSL code in PIX. GPU performance will be impacted.
 //#pragma enable_ray_tracing_shader_debug_symbols
 
-#pragma max_recursion_depth 1
+#pragma max_recursion_depth 2
 #include "UnityShaderVariables.cginc"
 #include "Assets/ShaderLibrary/Payload.hlsl"
 
-RWTexture2D<float4> g_Output;
+RWTexture2D<float4> g_ColorOutput;
+RWTexture2D<float4> g_ShadowOutput;
 RaytracingAccelerationStructure g_Scene;
 
 [shader("raygeneration")]
@@ -36,19 +37,25 @@ void RaygenShader() {
     ray.TMax      = 1000.0f;
 
     RayPayload payload;
-    payload.color = 0; //float4(1, 1, 1, 1);
+    payload.color = 0;
+    payload.shadowFactor = 1.0;
 
     uint missShaderIndex = 0;
     TraceRay(g_Scene, 0, 0xFF, 0, 1, missShaderIndex, ray, payload);
 
-    g_Output[frameCoord] = payload.color;
+    g_ColorOutput[frameCoord] = payload.color;
+    g_ShadowOutput[frameCoord] = float4(payload.shadowFactor, payload.shadowFactor, payload.shadowFactor, 1);
 }
 [shader("miss")]
 void MainMissShader(inout RayPayload payload : SV_RayPayload) {
-    //payload.color = float4(0, 0, 0, 1);
     float t = WorldRayDirection().y * 0.9 + 0.1;
     t = saturate(pow(t, 0.2));
     float3 c = lerp(float3(0.5, 0.5, 0.7), float3(0.1, 0.3, 0.8), t);
     payload.color = float4(c, 1);
+    payload.shadowFactor = 1.0;
     payload.hit = false;
+}
+[shader("miss")]
+void ShadowMissShader(inout ShadowPayload payload : SV_RayPayload) {
+    payload.shadowed = false;
 }

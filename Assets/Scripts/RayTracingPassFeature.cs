@@ -22,6 +22,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         private class PassData {
             public RayTracingShader rayTracingShader;
             public TextureHandle output_ColorTexture;
+            public TextureHandle shadow_Texture;
             public TextureHandle camera_ColorTarget;
             public RayTracingAccelerationStructure rayTracingAccelerationStructure;
             public Camera camera;
@@ -42,8 +43,12 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 data.rayTracingAccelerationStructure);
             context.cmd.SetRayTracingTextureParam(
                 data.rayTracingShader, 
-                ID_Output, 
+                ID_ColorOutput, 
                 data.output_ColorTexture);
+            context.cmd.SetRayTracingTextureParam(
+                data.rayTracingShader, 
+                ID_ShadowOutput, 
+                data.shadow_Texture);
 
             context.cmd.DispatchRays(data.rayTracingShader, RT_RayGen, (uint)data.camera.pixelWidth, (uint)data.camera.pixelHeight, 1, data.camera);
 
@@ -71,6 +76,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             rtdesc.enableRandomWrite = true;
             var resultTex = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph, rtdesc, "_RayTracedColor", false);
+            var shadowTex = UniversalRenderer.CreateRenderGraphTexture(
+                renderGraph, rtdesc, "_RayTracedShadow", false);
 
             // アクセラレーション構造を作成
             if (rayTracingAccelerationStructure == null) {
@@ -90,11 +97,13 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 // パスの入出力を設定し、実行時に必要なプロパティを passData にセットアップ
                 passData.rayTracingShader = rayTracingShader;
                 passData.output_ColorTexture = resultTex;
+                passData.shadow_Texture = shadowTex;
                 passData.camera_ColorTarget = colorTexture;
                 passData.rayTracingAccelerationStructure = rayTracingAccelerationStructure;
                 passData.camera = cameraData.camera;
 
                 builder.UseTexture(passData.output_ColorTexture, AccessFlags.Write);
+                builder.UseTexture(passData.shadow_Texture, AccessFlags.Write);
                 builder.UseTexture(passData.camera_ColorTarget, AccessFlags.ReadWrite);
 
                 // レンダーパスのデリゲートに ExecutePass 関数を割り当て
@@ -144,6 +153,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
     public const string RT_RayGen = "RaygenShader";
     public const string RT_ClosestHit = "ClosestHitShader";
     public static readonly int ID_Scene = Shader.PropertyToID("g_Scene");
-    public static readonly int ID_Output = Shader.PropertyToID("g_Output");
+    public static readonly int ID_ColorOutput = Shader.PropertyToID("g_ColorOutput");
+    public static readonly int ID_ShadowOutput = Shader.PropertyToID("g_ShadowOutput");
     #endregion
 }

@@ -15,6 +15,21 @@ MonoBehaviour:
   m_Active: 1
   renderPassEvent: 550
   rayTracingShader: {fileID: 4807578003741378534, guid: be3f0596cf8441544b2a25ccce6b3aed, type: 3}
+--- !u!114 &-2410798137166712838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b90b2f76a8abc134b8206fface259edb, type: 3}
+  m_Name: RayTracingPassFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  renderPassEvent: 550
+  rayTracingShader: {fileID: 4807578003741378534, guid: be3f0596cf8441544b2a25ccce6b3aed, type: 3}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -40,8 +55,8 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 2800000, guid: 24ec0e140fb444a44ab96ee80844e18e, type: 3}
     probeVolumeBlendStatesCS: {fileID: 7200000, guid: b9a23f869c4fd45f19c5ada54dd82176, type: 3}
   m_RendererFeatures:
-  - {fileID: -6285270371869560927}
-  m_RendererFeatureMap: a16f6dc7e53bc6a8
+  - {fileID: -2410798137166712838}
+  m_RendererFeatureMap: fa2f0101de1f8bde
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}

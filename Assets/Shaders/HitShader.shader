@@ -19,6 +19,8 @@ Shader "Custom/Binary" {
     float4 _MainTex_ST;
     float _Ambient;
     CBUFFER_END
+    
+    RaytracingAccelerationStructure g_Scene;
     ENDHLSL
 
     SubShader {
@@ -91,9 +93,29 @@ Shader "Custom/Binary" {
                 float NdotL = max(0, dot(normalWorld, lightDir));
                 float3 diffuse = lightColor * NdotL;
                 
-                // 最終カラー
-                float3 finalColor = _Color.rgb * (diffuse + _Ambient); // 0.1は環境光
-                payload.color = float4(finalColor, 1);
+                // シャドウレイを飛ばして遮蔽テスト
+                float shadowFactor = 1.0;
+                if (NdotL > 0) {
+                    RayDesc shadowRay;
+                    shadowRay.Origin = hitPositionWorld + normalWorld * 0.001; // オフセットでセルフシャドウを防ぐ
+                    shadowRay.Direction = lightDir;
+                    shadowRay.TMin = 0.001;
+                    shadowRay.TMax = 1000.0;
+                    
+                    ShadowPayload shadowPayload;
+                    shadowPayload.shadowed = true;
+                    
+                    uint shadowMissShaderIndex = 1; // ShadowMissShader のインデックス
+                    TraceRay(g_Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 
+                             0xFF, 1, 1, shadowMissShaderIndex, shadowRay, shadowPayload);
+                    
+                    shadowFactor = shadowPayload.shadowed ? 0.0 : 1.0;
+                }
+                
+                // シェーディングと影を別々に設定
+                float3 shading = _Color.rgb * (diffuse + _Ambient);
+                payload.color = float4(shading, 1);
+                payload.shadowFactor = shadowFactor;
                 payload.hit = true;
                 
                 // その他の表示オプション：
@@ -101,6 +123,23 @@ Shader "Custom/Binary" {
                 // payload.color = float4(bary, 1); // 重心座標
                 // payload.color = float4(lightDir * 0.5 + 0.5, 1); // ライト方向
                 // payload.color = float4(lightColor, 1); // ライトカラー
+            }
+
+            ENDHLSL
+        }
+        
+        Pass {
+            Name "ShadowShader"
+            Tags { "LightMode" = "Raytracing" }
+
+            HLSLPROGRAM
+            #pragma raytracing test
+
+            [shader("anyhit")]
+            void ShadowAnyHit(inout ShadowPayload payload : SV_RayPayload, AttributeData attribs : SV_IntersectionAttributes) {
+                // 何かにヒットしたので影になる
+                payload.shadowed = true;
+                AcceptHitAndEndSearch();
             }
 
             ENDHLSL
