@@ -21,6 +21,8 @@ Shader "Custom/Binary" {
     CBUFFER_END
     
     RaytracingAccelerationStructure g_Scene;
+    float g_AngularDiameter;
+    int g_SampleCount;
     ENDHLSL
 
     SubShader {
@@ -37,6 +39,41 @@ Shader "Custom/Binary" {
             // 重心座標による補完マクロ
             #define BARY_INTERPOLATE(v0, v1, v2, bary, attr) \
                 ((v0).attr * (bary).x + (v1).attr * (bary).y + (v2).attr * (bary).z)
+            
+            // 疑似乱数生成関数
+            float rand(float2 co) {
+                return frac(sin(dot(co, float2(12.9898, 78.233))) * 43758.5453);
+            }
+            
+            // 円盤上の一様サンプリング
+            float2 randomInUnitDisk(float2 seed) {
+                float r = sqrt(rand(seed));
+                float theta = 2.0 * 3.14159265359 * rand(seed + float2(1.0, 2.0));
+                return float2(r * cos(theta), r * sin(theta));
+            }
+            
+            // 球内の一様サンプリング
+            float3 randomInSphere(float2 seed) {
+                float r = pow(rand(seed), 1.0 / 3.0);
+                float theta = 2.0 * 3.14159265359 * rand(seed + float2(1.0, 2.0));
+                float phi = acos(2.0 * rand(seed + float2(3.0, 4.0)) - 1.0);
+                return float3(
+                    r * sin(phi) * cos(theta),
+                    r * sin(phi) * sin(theta),
+                    r * cos(phi)
+                );
+            }
+            
+            // ライト方向を摂動
+            float3 perturbLightDirection(float3 lightDir, float2 seed, float angularDiameterRad) {
+                float2 disk = randomInUnitDisk(seed) * tan(angularDiameterRad * 0.5);
+                
+                float3 tangent = normalize(cross(lightDir, float3(0, 1, 0)));
+                if (length(tangent) < 0.01) tangent = normalize(cross(lightDir, float3(1, 0, 0)));
+                float3 bitangent = cross(lightDir, tangent);
+                
+                return normalize(lightDir + disk.x * tangent + disk.y * bitangent);
+            }
 
             struct Vertex {
                 float3 position;
@@ -93,23 +130,32 @@ Shader "Custom/Binary" {
                 float NdotL = max(0, dot(normalWorld, lightDir));
                 float3 diffuse = lightColor * NdotL;
                 
-                // シャドウレイを飛ばして遮蔽テスト
-                float shadowFactor = 1.0;
+                // シャドウレイを飛ばして遮蔽テスト（ソフトシャドウ）
+                float shadowFactor = 0.0;
                 if (NdotL > 0) {
+                    float angularDiameterRad = g_AngularDiameter * 3.14159265359 / 180.0;
+                    int sampleCount = max(1, g_SampleCount);
+                    
                     RayDesc shadowRay;
-                    shadowRay.Origin = hitPositionWorld + normalWorld * 0.001; // オフセットでセルフシャドウを防ぐ
-                    shadowRay.Direction = lightDir;
+                    shadowRay.Origin = hitPositionWorld + normalWorld * 0.001;
                     shadowRay.TMin = 0.001;
                     shadowRay.TMax = 1000.0;
                     
-                    ShadowPayload shadowPayload;
-                    shadowPayload.shadowed = true;
+                    for (int i = 0; i < sampleCount; i++) {
+                        float2 seed = hitPositionWorld.xy + float2(i, i * 2);
+                        shadowRay.Direction = perturbLightDirection(lightDir, seed, angularDiameterRad);
+                        
+                        ShadowPayload shadowPayload;
+                        shadowPayload.shadowed = true;
+                        
+                        uint shadowMissShaderIndex = 1;
+                        TraceRay(g_Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 
+                                 0xFF, 1, 1, shadowMissShaderIndex, shadowRay, shadowPayload);
+                        
+                        if (!shadowPayload.shadowed) shadowFactor += 1.0;
+                    }
                     
-                    uint shadowMissShaderIndex = 1; // ShadowMissShader のインデックス
-                    TraceRay(g_Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 
-                             0xFF, 1, 1, shadowMissShaderIndex, shadowRay, shadowPayload);
-                    
-                    shadowFactor = shadowPayload.shadowed ? 0.0 : 1.0;
+                    shadowFactor /= float(sampleCount);
                 }
                 
                 // シェーディングと影を別々に設定

@@ -11,17 +11,19 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         public RayTracingShader rayTracingShader;
         public Shader compositeShader;
         public RenderPassEvent renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
+        [Range(0f, 90f)] public float angularDiameter = 0.5f;
+        [Range(1, 64)] public int sampleCount = 16;
     }
 
     public Settings settings = new Settings();
 
     class RayTracingPass : ScriptableRenderPass {
-        private readonly RayTracingShader rayTracingShader;
+        private readonly Settings settings;
         private RayTracingAccelerationStructure rayTracingAccelerationStructure;
         private Material compositeMaterial;
 
         public RayTracingPass(Settings settings) {
-            this.rayTracingShader = settings.rayTracingShader;
+            this.settings = settings;
             if (settings.compositeShader != null) compositeMaterial = new Material(settings.compositeShader);
         }
 
@@ -35,6 +37,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             public RayTracingAccelerationStructure rayTracingAccelerationStructure;
             public Camera camera;
             public Material compositeMaterial;
+            public float angularDiameter;
+            public int sampleCount;
         }
 
         // RenderGraph の RenderFunc デリゲートとして渡される静的メソッド
@@ -58,6 +62,10 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 data.rayTracingShader, 
                 ID_ShadowOutput, 
                 data.shadow_texture);
+            
+            // HitShader のグローバル変数を設定
+            context.cmd.SetGlobalFloat(ID_AngularDiameter, data.angularDiameter);
+            context.cmd.SetGlobalInt(ID_SampleCount, data.sampleCount);
 
             context.cmd.DispatchRays(data.rayTracingShader, RT_RayGen, (uint)data.camera.pixelWidth, (uint)data.camera.pixelHeight, 1, data.camera);
 
@@ -73,7 +81,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         // RenderGraph ハンドルにアクセスし、グラフにレンダーパスを追加するメソッド
         // FrameData は URP リソースへのアクセスと管理を行うコンテキストコンテナ
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) {
-            const string passName = "Render Custom Pass";
+            const string passName = "Custom Shading Pass";
+            Debug.Log("RecordRenderGraph: " + passName);
 
             // frameData から必要なリソースとカメラデータを取得
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
@@ -109,13 +118,15 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             // レンダーパスをグラフに追加し、ExecutePass 関数に渡すデータ型を指定
             using (var builder = renderGraph.AddUnsafePass<PassData>(passName, out var passData)) {
                 // パスの入出力を設定し、実行時に必要なプロパティを passData にセットアップ
-                passData.rayTracingShader = rayTracingShader;
+                passData.rayTracingShader = settings.rayTracingShader;
                 passData.color_texture = resultTex;
                 passData.shadow_texture = shadowTex;
                 passData.camera_target = colorTexture;
                 passData.rayTracingAccelerationStructure = rayTracingAccelerationStructure;
                 passData.camera = cameraData.camera;
                 passData.compositeMaterial = compositeMaterial;
+                passData.angularDiameter = settings.angularDiameter;
+                passData.sampleCount = settings.sampleCount;
 
                 builder.UseTexture(passData.color_texture, AccessFlags.ReadWrite);
                 builder.UseTexture(passData.shadow_texture, AccessFlags.ReadWrite);
@@ -174,5 +185,7 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
     public static readonly int ID_ColorOutput = Shader.PropertyToID("g_ColorOutput");
     public static readonly int ID_ShadowOutput = Shader.PropertyToID("g_ShadowOutput");
     public static readonly int ID_ShadowTex = Shader.PropertyToID("_ShadowTex");
+    public static readonly int ID_AngularDiameter = Shader.PropertyToID("g_AngularDiameter");
+    public static readonly int ID_SampleCount = Shader.PropertyToID("g_SampleCount");
     #endregion
 }
