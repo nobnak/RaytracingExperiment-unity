@@ -3,7 +3,7 @@
 
 #pragma max_recursion_depth 2
 #include "UnityShaderVariables.cginc"
-#include "Assets/ShaderLibrary/Payload.hlsl"
+#include "Packages/jp.nobnak.raytracing_experiments/Runtime/ShaderLibrary/Payload.hlsl"
 
 RWTexture2D<float4> g_ColorOutput;
 RWTexture2D<float4> g_ShadowOutput;

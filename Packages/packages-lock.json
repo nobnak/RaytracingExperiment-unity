@@ -203,6 +203,14 @@
       },
       "url": "https://packages.unity.com"
     },
+    "jp.nobnak.raytracing_experiments": {
+      "version": "file:jp.nobnak.raytracing_experiments",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.render-pipelines.universal": "14.0.0"
+      }
+    },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,

@@ -8,7 +8,7 @@ Shader "Custom/Binary" {
     }
 
     HLSLINCLUDE
-    #include "Assets/ShaderLibrary/Payload.hlsl"
+    #include "Packages/jp.nobnak.raytracing_experiments/Runtime/ShaderLibrary/Payload.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
     #include "UnityRaytracingMeshUtils.cginc"
