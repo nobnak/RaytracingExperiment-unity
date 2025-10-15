@@ -1,6 +1,6 @@
 # Custom RayTracing experiment on Unity
 
-[![Solar Potition Transition](http://img.youtube.com/vi/gkjsNE3j6_Y/hqdefault.jpg)](https://youtube.com/shorts/gkjsNE3j6_Y)
+[![Solar Potition Transition](http://img.youtube.com/vi/this-eiQw4o/hqdefault.jpg)](https://youtube.com/shorts/this-eiQw4o)
 
 ## Overview
 
