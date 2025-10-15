@@ -6,11 +6,7 @@
 
 This repository contains a Unity project demonstrating real-time ray tracing experiments with soft shadows and temporal blending using DirectX Raytracing (DXR).
 
-## Package: jp.nobnak.raytracing_experiments
-
-The core raytracing implementation is packaged as `jp.nobnak.raytracing_experiments`, located in `Packages/jp.nobnak.raytracing_experiments/`.
-
-### Features
+## Features
 
 - **Ray Traced Soft Shadows**: Realistic soft shadows using DXR with area light simulation
 - **Temporal Accumulation**: Exponential Moving Average (EMA) for noise reduction
@@ -18,14 +14,14 @@ The core raytracing implementation is packaged as `jp.nobnak.raytracing_experime
 - **Dynamic Resolution**: Automatic handling of camera resolution changes
 - **URP Integration**: Seamless integration with Universal Render Pipeline
 
-### Requirements
+## Requirements
 
 - Unity 2022.3 or later
 - Universal Render Pipeline (URP) 14.0 or later
 - DirectX 12 with ray tracing capable GPU
 - Windows 10/11
 
-### Installation
+## Installation
 
 Install the package via OpenUPM Scoped Registry:
 
@@ -38,8 +34,7 @@ Install the package via OpenUPM Scoped Registry:
 4. Open Package Manager (Window > Package Manager)
 5. Select "My Registries" and install "Raytracing Experiments"
 
-
-### Parameters
+## Parameters
 
 - **Angular Diameter** (0-90°): Controls the size of the light source and shadow softness
 - **Sample Count** (1-64): Number of shadow rays per pixel (higher = smoother but slower)
