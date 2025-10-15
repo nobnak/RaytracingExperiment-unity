@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -25,6 +26,8 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         private Material compositeMaterial;
         private Material temporalBlendMaterial;
         private RTHandle prevShadowTexture;
+        private int prevWidth;
+        private int prevHeight;
 
         public RayTracingPass(Settings settings) {
             this.settings = settings;
@@ -129,11 +132,16 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             var blendedShadowTex = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph, rtdesc, "_BlendedShadow", false);
             
-            // 前フレームの影テクスチャを初期化
-            if (prevShadowTexture == null) {
+            // 前フレームの影テクスチャを初期化（解像度変更時も再作成）
+            int currentWidth = cameraData.cameraTargetDescriptor.width;
+            int currentHeight = cameraData.cameraTargetDescriptor.height;
+            bool resolutionChanged = currentWidth != prevWidth || currentHeight != prevHeight;
+            
+            if (prevShadowTexture == null || resolutionChanged) {
+                prevShadowTexture?.Release();
                 prevShadowTexture = RTHandles.Alloc(
-                    cameraData.cameraTargetDescriptor.width,
-                    cameraData.cameraTargetDescriptor.height,
+                    currentWidth,
+                    currentHeight,
                     1,
                     DepthBits.None,
                     GraphicsFormat.R16G16B16A16_SFloat,
@@ -148,6 +156,9 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
                 RenderTexture.active = prevShadowTexture;
                 GL.Clear(false, true, Color.white);
                 RenderTexture.active = null;
+                
+                prevWidth = currentWidth;
+                prevHeight = currentHeight;
             }
 
             // アクセラレーション構造を作成
@@ -213,12 +224,11 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         }
     }
 
-    RayTracingPass m_ScriptablePass;
+    Dictionary<int, RayTracingPass> m_PassPerCamera = new Dictionary<int, RayTracingPass>();
 
     // レンダーパスの初期化
     public override void Create() {
-        m_ScriptablePass = new RayTracingPass(settings);
-        m_ScriptablePass.renderPassEvent = settings.renderPassEvent;
+        // カメラごとにパスを作成するため、ここでは初期化のみ
     }
 
     // レンダラーにレンダーパスを追加
@@ -228,14 +238,28 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
             // プレビューカメラではパスを追加しない
             return;
         }
-        renderer.EnqueuePass(m_ScriptablePass);
+
+        Camera camera = renderingData.cameraData.camera;
+        if (camera == null) return;
+        
+        int cameraID = camera.GetInstanceID();
+        
+        // カメラごとにパスを取得または作成
+        if (!m_PassPerCamera.TryGetValue(cameraID, out var pass)) {
+            pass = new RayTracingPass(settings);
+            pass.renderPassEvent = settings.renderPassEvent;
+            m_PassPerCamera[cameraID] = pass;
+        }
+        
+        renderer.EnqueuePass(pass);
     }
 
     protected override void Dispose(bool disposing) {
         base.Dispose(disposing);
         if (disposing) {
-            m_ScriptablePass?.Cleanup();
-            m_ScriptablePass = null;
+            foreach (var pass in m_PassPerCamera.Values)
+                pass?.Cleanup();
+            m_PassPerCamera.Clear();
         }
     }
 
