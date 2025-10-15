@@ -25,17 +25,19 @@ The core raytracing implementation is packaged as `jp.nobnak.raytracing_experime
 - DirectX 12 with ray tracing capable GPU
 - Windows 10/11
 
-### Quick Start
+### Installation
 
-1. Open the project in Unity
-2. The package is already included in `Packages/jp.nobnak.raytracing_experiments/`
-3. Open the sample scene: `Assets/Scenes/SampleScene.unity`
-4. Ensure your Graphics API is set to DirectX 12
-5. Configure the `RayTracingPassFeature` in your URP Renderer asset
+Install the package via OpenUPM Scoped Registry:
 
-### Package Documentation
+1. Open Project Settings (Edit > Project Settings)
+2. Navigate to Package Manager
+3. Add a new Scoped Registry:
+   - **Name**: OpenUPM
+   - **URL**: `https://package.openupm.com`
+   - **Scope**: `jp.nobnak`
+4. Open Package Manager (Window > Package Manager)
+5. Select "My Registries" and install "Raytracing Experiments"
 
-For detailed package documentation, see [Packages/jp.nobnak.raytracing_experiments/README.md](Packages/jp.nobnak.raytracing_experiments/README.md)
 
 ### Parameters
 
