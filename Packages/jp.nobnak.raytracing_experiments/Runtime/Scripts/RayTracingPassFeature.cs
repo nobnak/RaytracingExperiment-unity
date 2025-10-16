@@ -110,7 +110,6 @@ public class RayTracingPassFeature : ScriptableRendererFeature {
         // FrameData は URP リソースへのアクセスと管理を行うコンテキストコンテナ
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) {
             const string passName = "Custom Shading Pass";
-            Debug.Log("RecordRenderGraph: " + passName);
 
             // frameData から必要なリソースとカメラデータを取得
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
