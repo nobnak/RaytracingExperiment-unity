@@ -1,4 +1,4 @@
-# Custom RayTracing experiment on Unity
+# Custom-made RayTracing experiment on Unity
 
 |Custom-made Ray-Traced Shadow|Built-in Shadow (URP)|
 |----|----|
